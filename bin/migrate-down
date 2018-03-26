@@ -1,0 +1,70 @@
+#!/usr/bin/env node
+// vim: set ft=javascript:
+
+let program = require('commander')
+let path = require('path')
+let minimatch = require('minimatch')
+let dotenv = require('dotenv')
+let migrate = require('../')
+let runMigrations = require('../lib/migrate')
+let log = require('../lib/log')
+let registerCompiler = require('../lib/register-compiler')
+let pkg = require('../package.json')
+
+program
+  .version(pkg.version)
+  .usage('[options] <name>')
+  .option('-c, --chdir <dir>', 'Change the working directory', process.cwd())
+  .option('-f, --state-file <path>', 'Set path to state file', '.migrate')
+  .option('-s, --store <store>', 'Set the migrations store', path.join(__dirname, '..', 'lib', 'file-store'))
+  .option('--migrations-dir <dir>', 'Change the migrations directory name', 'migrations')
+  .option('--matches <glob>', 'A glob pattern to filter migration files', '*')
+  .option('--compiler <ext:module>', 'Use the given module to compile files')
+  .option('--env [name]', 'Use dotenv to load an environment file')
+  .parse(process.argv)
+
+// Change the working dir
+process.chdir(program.chdir)
+
+// Setup environment
+if (program.env) {
+  let e = dotenv.config({
+    path: typeof program.env === 'string' ? program.env : '.env'
+  })
+  if (e && e.error instanceof Error) {
+    throw e.error
+  }
+}
+
+async function down () {
+  // Load compiler
+  if (program.compiler) {
+    registerCompiler(program.compiler)
+  }
+
+  // Setup store
+  if (program.store[0] === '.') program.store = path.join(process.cwd(), program.store)
+
+  let Store = require(program.store)
+  let store = new Store(program.stateFile)
+
+  // Load in migrations
+  try {
+    let set = await migrate.load({
+      stateStore: store,
+      migrationsDirectory: program.migrationsDir,
+      filterFunction: minimatch.filter(program.matches)
+    })
+    set.on('migration', function (migration, direction) {
+      log(direction, migration.title)
+    })
+    await runMigrations(set, 'down', {}, program.args[0])
+    log('migration', 'complete')
+    process.exit(0)
+  } catch (error) {
+    log.error('error', error)
+    process.exit(1)
+  }
+}
+
+down()

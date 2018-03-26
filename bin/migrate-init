@@ -1,0 +1,53 @@
+#!/usr/bin/env node
+// vim: set ft=javascript:
+let program = require('commander')
+let mkdirp = require('mkdirp-promise')
+let dotenv = require('dotenv')
+let path = require('path')
+let log = require('../lib/log')
+let pkg = require('../package.json')
+
+program
+  .version(pkg.version)
+  .option('-f, --state-file <path>', 'Set path to state file', '.migrate')
+  .option('-s, --store <store>', 'Set the migrations store', path.join(__dirname, '..', 'lib', 'file-store'))
+  .option('--migrations-dir <dir>', 'Change the migrations directory name', 'migrations')
+  .option('-c, --chdir [dir]', 'Change the working directory', process.cwd())
+  .option('--env [name]', 'Use dotenv to load an environment file')
+  .parse(process.argv)
+
+async function init () {
+  // Change the working dir
+  process.chdir(program.chdir)
+
+  // Setup environment
+  if (program.env) {
+    let e = dotenv.config({
+      path: typeof program.env === 'string' ? program.env : '.env'
+    })
+    if (e && e.error instanceof Error) {
+      throw e.error
+    }
+  }
+
+  // Setup store
+  if (program.store[0] === '.') {
+    program.store = path.join(process.cwd(), program.store)
+  }
+
+  let Store = require(program.store)
+  let store = new Store(program.stateFile)
+
+// Create migrations dir path
+  let p = path.join(process.cwd(), program.migrationsDir)
+
+  log('migrations dir', p)
+  await mkdirp(p)
+
+// Call store init
+  if (typeof store.init === 'function') {
+    await store.init()
+  }
+}
+
+init()
