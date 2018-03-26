@@ -1,0 +1,65 @@
+#!/usr/bin/env node
+// vim: set ft=javascript:
+let program = require('commander')
+let path = require('path')
+let dotenv = require('dotenv')
+let log = require('../lib/log')
+let registerCompiler = require('../lib/register-compiler')
+let pkg = require('../package.json')
+
+program
+  .version(pkg.version)
+  .option('-c, --chdir [dir]', 'Change the working directory', process.cwd())
+  .option('--migrations-dir <dir>', 'Change the migrations directory name', 'migrations')
+  .option('--compiler <ext:module>', 'Use the given module to compile files')
+  .option('-d, --date-format [format]', 'Set a date format to use')
+  .option('-t, --template-file [filePath]', 'Set path to template file to use for new migrations', path.join(__dirname, '..', 'lib', 'template.js'))
+  .option('-e, --extention [extention]', 'Use the given extention to create the file', '.js')
+  .option('-g, --generator <name>', 'A template generator function', path.join(__dirname, '..', 'lib', 'template-generator'))
+  .option('--env [name]', 'Use dotenv to load an environment file')
+  .arguments('<name>')
+  .action(create)
+  .parse(process.argv)
+
+// Setup environment
+if (program.env) {
+  let e = dotenv.config({
+    path: typeof program.env === 'string' ? program.env : '.env'
+  })
+  if (e && e.error instanceof Error) {
+    throw e.error
+  }
+}
+
+if (program.args.length === 0) {
+  log.error('error', 'Migration name required')
+  log('usage', 'migrate create <name>')
+  process.exit(-1)
+}
+
+async function create (name) {
+  // Change the working dir
+  process.chdir(program.chdir)
+
+  // Load compiler
+  if (program.compiler) {
+    registerCompiler(program.compiler)
+  }
+
+  // Load the template generator
+  let gen = require(program.generator)
+  try {
+    let p = await gen({
+      name: name,
+      dateFormat: program.dateFormat,
+      templateFile: program.templateFile,
+      migrationsDirectory: program.migrationsDir,
+      extention: program.extention
+    })
+    log('create', p)
+    process.exit(0)
+  } catch (error) {
+    log.error('Template generation error', error.message)
+    process.exit(1)
+  }
+}
