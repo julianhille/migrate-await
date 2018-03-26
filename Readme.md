@@ -1,6 +1,7 @@
 # Migrate
 
 [![JavaScript Style Guide](https://img.shields.io/badge/code_style-standard-brightgreen.svg)](https://standardjs.com)
+[![CircleCI](https://circleci.com/gh/julianhille/migrate-await/tree/master.svg?style=svg&circle-token=f060aa910c6d6eace729683183ec6166c72f60d2)](https://circleci.com/gh/julianhille/migrate-await/tree/master)
 
 Abstract migration framework for node based on:
 https://github.com/visionmedia/node-migrate
