@@ -8,7 +8,7 @@ https://github.com/visionmedia/node-migrate
 
 ## Installation
 
-    $ npm install migrate
+    $ npm install migrate-await
 
 ## Usage
 
